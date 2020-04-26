@@ -10,6 +10,7 @@ const {
 } = require("../validation");
 const postsPerRequest = 5;
 let postsRequests = 0;
+const number_of_users = 3;
 
 //ROUTES
 router.get("/home", authorize, (req, res) => {
@@ -168,6 +169,20 @@ router.post("/home/deleteComment", authorize, (req, res) => {
     );
 
     res.send("DELETED COMMENT");
+});
+
+//USERS ROUTES
+router.get('/users/search', authorize, (req, res) => {
+    const search = req.body.q;
+    const skip = req.body.skip;
+    const regex = RegExp(`${search}`, 'i');
+    User.find({
+        username: regex
+    }).sort('-username').skip(skip * number_of_users).limit(number_of_users).exec((err, data) => {
+        if (err) return res.status('500').send(err);
+
+        return res.send(data);
+    });
 });
 
 router.get("/users/logout", authorize, (req, res) => {
