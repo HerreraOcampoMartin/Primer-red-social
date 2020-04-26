@@ -23,35 +23,34 @@ function validateSignIn(data) {
 
 function validatePost(data) {
     const schema = new Joi.object({
-        user: Joi.string().min(6).max(20).required(),
         content: Joi.string().min(1).max(144).required()
     });
 
     return schema.validate(data);
 }
 
-function validateDocExtension(data) {
+function validateMediaExtension(data) {
     let valid = false;
-    const ext = data.name.split(".").pop();
-    if (ext === 'jpg' &&
-        ext === 'png' &&
-        ext === 'jpeg' &&
-        ext === 'gif' &&
-        ext === 'mp4' &&
+    const ext = data.name.split(".").pop().toLowerCase();
+    if (ext === 'jpg' ||
+        ext === 'png' ||
+        ext === 'jpeg' ||
+        ext === 'gif' ||
+        ext === 'mp4' ||
         ext === 'mp3') valid = true;
 
     return valid;
 }
 
-function validateMediaExtension(data) {
+function validateDocExtension(data) {
     let valid = false;
-    const ext = data.name.split(".").pop();
-    if (ext === 'doc' &&
-        ext === 'docx' &&
-        ext === 'xls' &&
-        ext === 'xlsx' &&
-        ext === 'ppt' &&
-        ext === 'pptx' &&
+    const ext = data.name.split(".").pop().toLowerCase();
+    if (ext === 'doc' ||
+        ext === 'docx' ||
+        ext === 'xls' ||
+        ext === 'xlsx' ||
+        ext === 'ppt' ||
+        ext === 'pptx' ||
         ext === 'pdf') valid = true;
 
     return valid;

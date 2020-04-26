@@ -8,17 +8,16 @@ const {
     validateDocExtension,
     validateMediaExtension,
 } = require("../validation");
+const postsPerRequest = 5;
+let postsRequests = 0;
 
-router.get("/home", authorize, async (req, res) => {
-    try {
-        const posts = [];
-        for await (const p of Post.find().limit(10).sort("date")) {
-            posts.push(p);
-        }
-        res.send(posts);
-    } catch (ex) {
-        res.send("ERROR: " + ex);
-    }
+//ROUTES
+router.get("/home", authorize, (req, res) => {
+    loadPosts(req, res);
+});
+
+router.get("/home/getMorePosts", authorize, (req, res) => {
+    loadPosts(req, res);
 });
 
 router.post("/home/createPost", authorize, (req, res) => {
@@ -27,20 +26,21 @@ router.post("/home/createPost", authorize, (req, res) => {
             error
         } = validatePost(req.body);
         if (error) return res.send(error);
-        if (req.files.mediaFile) {
-            validateMediaExtension(req.files.mediaFile);
-            return res.send("La extension del archivo no es valido.");
+
+        if (req.files && req.files.mediaFile) {
+            if (!validateMediaExtension(req.files.mediaFile))
+                return res.send("La extension del archivo no es valido.");
         }
-        if (req.files.documentFile) {
-            validateDocExtension(req.files.documentFile);
-            return res.send("La extension del documento no es valido.");
+        if (req.files && req.files.documentFile) {
+            if (!validateDocExtension(req.files.documentFile))
+                return res.send("La extension del documento no es valido.");
         }
 
         let postContent = {
-            user: req.body.user,
+            user: req.userData.username,
             content: req.body.content,
         };
-        if (req.files.mediaFile) {
+        if (req.files && req.files.mediaFile) {
             const media = req.files.mediaFile;
             const extension = media.name.split(".").pop();
             const name_id = uniqid("media-");
@@ -51,7 +51,7 @@ router.post("/home/createPost", authorize, (req, res) => {
             });
             postContent.media = complete_name;
         }
-        if (req.files.documentFile) {
+        if (req.files && req.files.documentFile) {
             const doc = req.files.documentFile;
             const extension = doc.name.split(".").pop();
             const name_id = uniqid("doc-");
@@ -128,7 +128,7 @@ router.post("/home/commentPost/:id", authorize, (req, res) => {
     const postID = req.params.id;
     const comment = req.body.comment;
     const user = req.userData.username;
-    const commentID = uniqid('comment-');
+    const commentID = uniqid("comment-");
 
     Post.findOneAndUpdate({
             _id: postID,
@@ -137,8 +137,8 @@ router.post("/home/commentPost/:id", authorize, (req, res) => {
                 comments: {
                     id: commentID,
                     user,
-                    comment
-                }
+                    comment,
+                },
             },
         },
         (err) => {
@@ -146,32 +146,47 @@ router.post("/home/commentPost/:id", authorize, (req, res) => {
         }
     );
 
-
     res.send("FINISHED");
 });
 
-router.post('/home/deleteComment', authorize, (req, res) => {
+router.post("/home/deleteComment", authorize, (req, res) => {
     const commentID = req.body.commentID;
     const postID = req.body.postID;
 
     Post.findByIdAndUpdate({
-        _id: postID
-    }, {
-        $pull: {
-            comments: {
-                id: commentID
-            }
+            _id: postID,
+        }, {
+            $pull: {
+                comments: {
+                    id: commentID,
+                },
+            },
+        },
+        (err) => {
+            if (err) console.log(err);
         }
-    }, (err) => {
-        if (err) console.log(err);
-    });
+    );
 
-    res.send('DELETED COMMENT');
-})
+    res.send("DELETED COMMENT");
+});
 
 router.get("/users/logout", authorize, (req, res) => {
     res.clearCookie("auth-token");
     res.send("CLEARED SESSION");
 });
+
+//FUNCTIONS
+async function loadPosts(req, res) {
+    try {
+        const posts = [];
+        for await (const p of Post.find().skip(postsRequests * postsPerRequest).limit(postsPerRequest).sort("-date")) {
+            posts.push(p);
+        }
+        res.send(posts);
+        postsRequests++;
+    } catch (ex) {
+        res.send("ERROR: " + ex);
+    }
+}
 
 module.exports = router;
