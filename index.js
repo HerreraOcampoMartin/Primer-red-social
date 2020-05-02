@@ -23,6 +23,7 @@ app.use(fileUpload());
 //ROUTES
 app.use(require("./routes/publicRoutes"));
 app.use(require("./routes/functionRoutes"));
+app.use(require("./routes/chatsRoutes"));
 
 //LISTEN
 app.listen(app.get("PORT"), () =>
