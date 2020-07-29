@@ -59,8 +59,7 @@ function validateDocExtension(data) {
 function validateMessage(data) {
     const schema = new Joi.object({
         text: Joi.string().min(1).required(),
-        from: Joi.string().min(6).max(20).required(),
-        to: Joi.string().min(6).max(20).required()
+        to: Joi.string().min(6).max(50).required()
     });
 
     return schema.validate(data);

@@ -8,9 +8,6 @@ const {
 } = require("../validation");
 
 //ROUTES
-router.get("/", (req, res) => {
-    res.send("HOLA QUE TAL, ESTE ES MI INICIO");
-});
 
 router.post('/users/login', async (req, res) => {
     try {
@@ -32,14 +29,15 @@ router.post('/users/login', async (req, res) => {
 
         //CREATE AND SAVE TOKEN
         const token = jwt.sign({
-            username: userLoggedIn.username
+            username: userLoggedIn.username,
+            id: userLoggedIn._id
         }, process.env.JWT_KEY);
 
         res.cookie("auth-token", token, {
             expires: new Date(Date.now() + 24 * 60 * 60000)
         });
-        res.redirect('/home');
 
+        res.send('LOGGED IN');
 
     } catch (ex) {
         res.send('ERROR: ' + ex);

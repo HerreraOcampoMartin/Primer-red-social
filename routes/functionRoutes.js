@@ -3,6 +3,7 @@ const authorize = require("./verifyRoute");
 const Post = require("../models/Post");
 const User = require("../models/User");
 const uniqid = require("uniqid");
+const axios = require("axios");
 const {
     validatePost,
     validateDocExtension,
@@ -73,19 +74,19 @@ router.post("/home/createPost", authorize, (req, res) => {
     }
 });
 
-router.post("/home/likePost/:id", authorize, (req, res) => {
+router.post("/home/likePost/:id", authorize, async (req, res) => {
     const postID = req.params.id;
     const user = req.userData.username;
 
-    Post.findOne({
-            _id: postID,
-        },
+    await Post.findOne({
+        _id: postID,
+    },
         (err) => {
             if (err) return res.send(err);
 
             User.findOne({
-                    username: user,
-                },
+                username: user,
+            },
                 (err, doc) => {
                     if (err) return res.send(err);
 
@@ -95,34 +96,39 @@ router.post("/home/likePost/:id", authorize, (req, res) => {
                     }
 
                     Post.findOneAndUpdate({
-                            _id: postID,
-                        }, {
-                            [pull_or_push]: {
-                                likes: user,
-                            },
+                        _id: postID,
+                    }, {
+                        [pull_or_push]: {
+                            likes: user,
                         },
+                    },
                         (err) => {
                             if (err) console.log(err);
                         }
                     );
 
                     User.findOneAndUpdate({
-                            username: user,
-                        }, {
-                            [pull_or_push]: {
-                                likedPosts: postID,
-                            },
+                        username: user,
+                    }, {
+                        [pull_or_push]: {
+                            likedPosts: postID,
                         },
+                    },
                         (err) => {
                             if (err) console.log(err);
                         }
                     );
+
+                    if (pull_or_push === '$push')
+                        sendNotification(postID, 'like', req, res);
+                    else
+                        res.send("REMOVED LIKE");
+
                 }
             );
         }
     );
 
-    res.send("FINISHED");
 });
 
 router.post("/home/commentPost/:id", authorize, (req, res) => {
@@ -132,22 +138,22 @@ router.post("/home/commentPost/:id", authorize, (req, res) => {
     const commentID = uniqid("comment-");
 
     Post.findOneAndUpdate({
-            _id: postID,
-        }, {
-            $push: {
-                comments: {
-                    id: commentID,
-                    user,
-                    comment,
-                },
+        _id: postID,
+    }, {
+        $push: {
+            comments: {
+                id: commentID,
+                user,
+                comment,
             },
         },
+    },
         (err) => {
             if (err) console.log(err);
         }
     );
 
-    res.send("FINISHED");
+    sendNotification(postID, 'comment', req, res);
 });
 
 router.post("/home/deleteComment", authorize, (req, res) => {
@@ -155,14 +161,14 @@ router.post("/home/deleteComment", authorize, (req, res) => {
     const postID = req.body.postID;
 
     Post.findByIdAndUpdate({
-            _id: postID,
-        }, {
-            $pull: {
-                comments: {
-                    id: commentID,
-                },
+        _id: postID,
+    }, {
+        $pull: {
+            comments: {
+                id: commentID,
             },
         },
+    },
         (err) => {
             if (err) console.log(err);
         }
@@ -190,6 +196,71 @@ router.get("/users/logout", authorize, (req, res) => {
     res.send("CLEARED SESSION");
 });
 
+router.get("/users/searchById", authorize, async (req, res) => {
+    const userID = req.body.userToSearch;
+    const userData = await User.findById(userID);
+    res.send(userData);
+});
+
+router.post("/users/follow/:id", authorize, async (req, res) => {
+    const userID = req.params.id;
+    const newFollower = req.userData.id;
+
+    if (userID == newFollower) return res.status(400).send('USERS CANNOT FOLLOW THEMSELF');
+
+    await User.findOne({
+        _id: userID,
+    },
+        (err) => {
+            if (err) return res.send(err);
+
+            User.findOne({
+                _id: newFollower,
+            },
+                (err, doc) => {
+                    if (err) return res.send(err);
+
+                    let pull_or_push = "$push";
+                    if (doc.following.some((like) => like === userID)) {
+                        pull_or_push = "$pull";
+                    }
+
+                    User.findOneAndUpdate({
+                        _id: userID,
+                    }, {
+                        [pull_or_push]: {
+                            followers: newFollower,
+                        },
+                    },
+                        (err) => {
+                            if (err) console.log(err);
+                        }
+                    );
+
+                    User.findOneAndUpdate({
+                        _id: newFollower,
+                    }, {
+                        [pull_or_push]: {
+                            following: userID,
+                        },
+                    },
+                        (err) => {
+                            if (err) console.log(err);
+                        }
+                    );
+
+                    if (pull_or_push === '$push')
+                        sendFollowNotification(userID, 'follower', req, res);
+                    else
+                        res.send("UNFOLLOWING USER");
+
+                }
+            );
+        }
+    );
+
+});
+
 //FUNCTIONS
 async function loadPosts(req, res) {
     try {
@@ -202,6 +273,53 @@ async function loadPosts(req, res) {
     } catch (ex) {
         res.send("ERROR: " + ex);
     }
+}
+
+async function sendNotification(postID, type, req, res) {
+    let owner;
+
+    await Post.findById(postID).exec((err, resp) => {
+        if (err) return res.status(500).send(err);
+        owner = resp.user;
+
+        axios({
+            method: "post",
+            url: `http://localhost:${process.env.PORT}/notif/generate/`,
+            withCredentials: true,
+            headers: {
+                'auth-token-axios': req.cookies["auth-token"],
+                accept: 'application/json, text/plain, */*',
+                'content-type': 'application/json;charset=utf-8',
+                'action': type,
+                'at': postID,
+                'to-user': owner
+            }
+        })
+            .then(response => {
+                res.send(response.data);
+            })
+            .catch(err => res.status(500).send(err));
+    });
+}
+
+async function sendFollowNotification(ID, type, req, res) {
+
+    axios({
+        method: "post",
+        url: `http://localhost:${process.env.PORT}/notif/generateFollow/`,
+        withCredentials: true,
+        headers: {
+            'auth-token-axios': req.cookies["auth-token"],
+            accept: 'application/json, text/plain, */*',
+            'content-type': 'application/json;charset=utf-8',
+            'action': type,
+            'to-user': ID
+        }
+    })
+        .then(response => {
+            res.send(response.data);
+        })
+        .catch(err => res.status(500).send(err));
 }
 
 module.exports = router;

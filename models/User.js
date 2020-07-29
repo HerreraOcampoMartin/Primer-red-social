@@ -33,6 +33,18 @@ const user = new Schema({
     likedPosts: {
         type: Array,
         default: []
+    },
+    notifications: {
+        type: Array,
+        default: []
+    },
+    following: {
+        type: Array,
+        default: []
+    },
+    followers: {
+        type: Array,
+        default: []
     }
 });
 

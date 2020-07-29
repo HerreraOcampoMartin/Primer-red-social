@@ -10,7 +10,7 @@ require("./database");
 //CONFIG
 app.set("views", path.join(__dirname, "views"));
 app.set("PORT", process.env.PORT);
-app.set("view engine", ".ejs");
+app.engine('html', require('ejs').renderFile);
 app.use(
     express.urlencoded({
         extended: false,
@@ -22,8 +22,11 @@ app.use(fileUpload());
 
 //ROUTES
 app.use(require("./routes/publicRoutes"));
+app.use(require("./routes/notificationController"));
 app.use(require("./routes/functionRoutes"));
+app.use(require("./routes/profileRoutes"));
 app.use(require("./routes/chatsRoutes"));
+app.use(require("./routes/viewsRoutes"));
 
 //LISTEN
 app.listen(app.get("PORT"), () =>
