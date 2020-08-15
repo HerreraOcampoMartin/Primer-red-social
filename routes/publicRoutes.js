@@ -50,7 +50,7 @@ router.post("/users/signup", async (req, res) => {
         const {
             error
         } = validateSignUp(req.body);
-        if (error) return res.status().send(error);
+        if (error) return res.status(400).send(error);
 
         //CHECK IF USERSNAME IS USED
         let exists = await User.findOne({
@@ -80,7 +80,7 @@ router.post("/users/signup", async (req, res) => {
         newUser.save();
         res.send("USUARIO CREADO");
     } catch (ex) {
-        res.send("ERROR: " + ex);
+        res.status(500).send("ERROR: " + ex);
     }
 });
 

@@ -26,7 +26,6 @@ app.use(require("./routes/notificationController"));
 app.use(require("./routes/functionRoutes"));
 app.use(require("./routes/profileRoutes"));
 app.use(require("./routes/chatsRoutes"));
-app.use(require("./routes/viewsRoutes"));
 
 //LISTEN
 app.listen(app.get("PORT"), () =>
